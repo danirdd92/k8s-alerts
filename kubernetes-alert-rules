@@ -1,0 +1,233 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubernetes-alert-rules
+  labels:
+    grafana_alert: "1"
+data:
+  kubernetes_alert_rules.yaml: |-
+    apiVersion: 1
+    groups:
+      - name: KubernetesPodAlerts
+        rules:
+          # Alert for Pods Not Starting for Over 10 Minutes
+          - alert: PodsNotStartingOver10Min
+            expr: |
+              count by (cluster, namespace, pod) (
+                ((time() - kube_pod_created{job="kube-state-metrics"}) > 600)
+                and on(namespace, pod) kube_pod_status_phase{phase=~"Pending|Unknown", job="kube-state-metrics"}
+              ) > 0
+            for: 0m
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Pod {{ $labels.pod }} has not started for over 10 minutes.'
+              description: 'Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} on cluster {{ $labels.cluster }} has been in {{ $value }} non-running state for over 10 minutes.'
+    
+          # Alert for Pods in CrashLoopBackOff Over 10 Minutes
+          - alert: PodCrashLoopBackOffOver10Min
+            expr: |
+              count by (cluster, namespace, pod) (
+                avg_over_time(kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff", job="kube-state-metrics"}[10m]) == 1
+              ) > 0
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: 'Pod {{ $labels.pod }} is in CrashLoopBackOff for over 10 minutes.'
+              description: 'Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} on cluster {{ $labels.cluster }} has been crashing for over 10 minutes.'
+    
+          # Alert for High CPU Usage
+          - alert: HighNodeCPUUsage
+            expr: |
+              sum by (cluster, instance) (
+                rate(node_cpu_seconds_total{mode!="idle", job="node-exporter"}[5m])
+              ) / sum by (cluster, instance) (
+                rate(node_cpu_seconds_total{job="node-exporter"}[5m])
+              ) * 100 > 90
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: 'High CPU usage on {{ $labels.instance }}'
+              description: 'Node {{ $labels.instance }} on cluster {{ $labels.cluster }} has CPU usage above 90% for more than 5 minutes.'
+    
+          # Alert for High Memory Usage
+          - alert: HighNodeMemoryUsage
+            expr: |
+              (node_memory_MemTotal_bytes{job="node-exporter"} - node_memory_MemAvailable_bytes{job="node-exporter"}) / node_memory_MemTotal_bytes{job="node-exporter"} * 100 > 90
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: 'High Memory usage on {{ $labels.instance }}'
+              description: 'Node {{ $labels.instance }} on cluster {{ $labels.cluster }} has Memory usage above 90% for more than 5 minutes.'
+    
+          # Alert for Disk Space Low
+          - alert: NodeDiskSpaceLow
+            expr: |
+              node_filesystem_avail_bytes{job="node-exporter",fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{job="node-exporter",fstype!~"tmpfs|overlay"} * 100 < 10
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Disk space low on {{ $labels.instance }}'
+              description: 'Node {{ $labels.instance }} on cluster {{ $labels.cluster }} has less than 10% disk space available.'
+    
+          # Alert for High Pod Restart Rate
+          - alert: HighPodRestarts
+            expr: |
+              increase(kube_pod_container_status_restarts_total{job="kube-state-metrics"}[10m]) > 5
+            for: 0m
+            labels:
+              severity: warning
+            annotations:
+              summary: 'High restart rate for pod {{ $labels.pod }}'
+              description: 'Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} on cluster {{ $labels.cluster }} has restarted more than 5 times in the last 10 minutes.'
+    
+          # Alert for Kubernetes API Server Errors
+          - alert: KubernetesAPIErrors
+            expr: |
+              rate(apiserver_request_total{job="apiserver", code=~"5.."}[5m]) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: 'API server errors detected on cluster {{ $labels.cluster }}'
+              description: 'Kubernetes API server on cluster {{ $labels.cluster }} is returning 5xx errors.'
+    
+          # Alert for Node Not Ready
+          - alert: NodeNotReady
+            expr: |
+              kube_node_status_condition{condition="Ready", status!="true", job="kube-state-metrics"} == 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: 'Node {{ $labels.node }} is not ready'
+              description: 'Node {{ $labels.node }} on cluster {{ $labels.cluster }} has been in NotReady state for more than 5 minutes.'
+    
+          # Alert for High Network Latency
+          - alert: HighNetworkLatency
+            expr: |
+              sum by (cluster, instance) (
+                rate(node_network_receive_errs_total{job="node-exporter"}[5m]) + rate(node_network_transmit_errs_total{job="node-exporter"}[5m])
+              ) > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: 'High network error rate on {{ $labels.instance }}'
+              description: 'Node {{ $labels.instance }} on cluster {{ $labels.cluster }} is experiencing high network error rates.'
+    
+          # Alert for Persistent Volume Claim Usage High
+          - alert: PersistentVolumeClaimUsageHigh
+            expr: |
+              kubelet_volume_stats_used_bytes{job="kubelet"} / kubelet_volume_stats_capacity_bytes{job="kubelet"} * 100 > 90
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: 'PVC usage high on {{ $labels.persistentvolumeclaim }}'
+              description: 'PersistentVolumeClaim {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }} on cluster {{ $labels.cluster }} is using more than 90% of capacity.'
+    
+          # Alert for Deployment Replicas Mismatch
+          - alert: DeploymentReplicasMismatch
+            expr: |
+              kube_deployment_spec_replicas{job="kube-state-metrics"} != kube_deployment_status_replicas_available{job="kube-state-metrics"}
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Deployment replicas mismatch in {{ $labels.namespace }}'
+              description: 'Deployment {{ $labels.deployment }} in namespace {{ $labels.namespace }} on cluster {{ $labels.cluster }} has a mismatch between desired and available replicas.'
+    
+          # Alert for Pending Jobs
+          - alert: PendingJobs
+            expr: |
+              kube_job_status_start_time{job="kube-state-metrics"} > 0 and on(namespace, job_name) kube_job_status_completion_time{job="kube-state-metrics"} == 0 and (time() - kube_job_status_start_time{job="kube-state-metrics"}) > 3600
+            for: 0m
+            labels:
+              severity: info
+            annotations:
+              summary: 'Job {{ $labels.job_name }} is pending for over 1 hour.'
+              description: 'Job {{ $labels.job_name }} in namespace {{ $labels.namespace }} on cluster {{ $labels.cluster }} has been pending for over 1 hour.'
+    
+      - name: KubernetesClusterAlerts
+        rules:
+          # Alert for Cluster Not Reachable
+          - alert: ClusterNotReachable
+            expr: |
+              up{job="kube-state-metrics"} == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: 'Cluster {{ $labels.cluster }} is not reachable'
+              description: 'No metrics have been received from cluster {{ $labels.cluster }} for more than 5 minutes.'
+    
+          # Alert for Thanos Sidecar Down
+          - alert: ThanosSidecarDown
+            expr: |
+              absent(up{job="thanos-sidecar"}) == 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: 'Thanos Sidecar down on {{ $labels.cluster }}'
+              description: 'Thanos Sidecar on cluster {{ $labels.cluster }} is down.'
+    
+          # Alert for High API Server Request Latency
+          - alert: HighAPIServerRequestLatency
+            expr: |
+              histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver"}[5m])) by (le)) > 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: 'High API server request latency on cluster {{ $labels.cluster }}'
+              description: '99th percentile API server request latency is greater than 1 second on cluster {{ $labels.cluster }}.'
+    
+          # Alert for Etcd High Disk Usage
+          - alert: EtcdHighDiskUsage
+            expr: |
+              etcd_server_quota_backend_bytes{job="etcd"} / etcd_server_quota_backend_size_bytes{job="etcd"} * 100 > 90
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: 'Etcd disk usage high on {{ $labels.instance }}'
+              description: 'Etcd on {{ $labels.instance }} in cluster {{ $labels.cluster }} is using more than 90% of disk quota.'
+    
+          # Alert for Certificate Expiration
+          - alert: CertificateExpiration
+            expr: |
+              (kube_ssl_cert_not_after{job="kube-state-metrics"} - time()) < 604800
+            for: 0m
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Certificate expiring soon on {{ $labels.instance }}'
+              description: 'SSL certificate on {{ $labels.instance }} in cluster {{ $labels.cluster }} is expiring in less than 7 days.'
+    
+          # Alert for DaemonSet Not Ready
+          - alert: DaemonSetNotReady
+            expr: |
+              kube_daemonset_status_number_ready{job="kube-state-metrics"} < kube_daemonset_status_desired_number_scheduled{job="kube-state-metrics"}
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: 'DaemonSet {{ $labels.daemonset }} not ready in {{ $labels.namespace }}'
+              description: 'DaemonSet {{ $labels.daemonset }} in namespace {{ $labels.namespace }} on cluster {{ $labels.cluster }} is not ready on all nodes.'
+    
+          # Alert for StatefulSet Replicas Mismatch
+          - alert: StatefulSetReplicasMismatch
+            expr: |
+              kube_statefulset_status_replicas_current{job="kube-state-metrics"} != kube_statefulset_status_replicas_ready{job="kube-state-metrics"}
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: 'StatefulSet replicas mismatch in {{ $labels.namespace }}'
+              description: 'StatefulSet {{ $labels.statefulset }} in namespace {{ $labels.namespace }} on cluster {{ $labels.cluster }} has a mismatch between current and ready replicas.'
