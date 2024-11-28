@@ -1,0 +1,42 @@
+# values.yaml
+
+grafana.ini:
+  # SMTP configuration for email notifications
+ smtp:
+    enabled: true
+    host: smtp.example.com:587
+    user: $__smtp_user
+    password: $__smtp_password
+    from_address: grafana@example.com
+    from_name: Grafana
+
+env:
+  # Reference the SMTP credentials from the Secret
+  - name: __smtp_user
+    valueFrom:
+      secretKeyRef:
+        name: grafana-smtp-secret
+        key: smtp_user
+  - name: __smtp_password
+    valueFrom:
+      secretKeyRef:
+        name: grafana-smtp-secret
+        key: smtp_password
+
+# Enable the sidecar for alerting configurations
+sidecar:
+  alerting:
+    enabled: true
+    label: grafana_alert
+    searchNamespace: ALL
+
+  notifications:
+    enabled: true
+    label: grafana_alert_notification
+    searchNamespace: ALL
+
+  # If you plan to use dashboards and datasources sidecars
+  dashboards:
+    enabled: false
+  datasources:
+    enabled: false
