@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-notification-templates
+  labels:
+    grafana_alert_notification: "1"
+data:
+  notification_templates.yaml: |-
+    templates:
+      - name: default_template
+        type: email
+        definition: |
+          {{ define "default.email.subject" }}
+            [{{ .Status | toUpper }}] {{ .AlertName }}: {{ .CommonAnnotations.summary }}
+          {{ end }}
+
+          {{ define "default.email.body" }}
+            <h1>{{ .Status | toUpper }}: {{ .AlertName }}</h1>
+            <p>{{ .CommonAnnotations.description }}</p>
+            <p><b>Labels:</b></p>
+            <ul>
+            {{ range $k, $v := .GroupLabels }}
+              <li>{{ $k }}: {{ $v }}</li>
+            {{ end }}
+            </ul>
+          {{ end }}
