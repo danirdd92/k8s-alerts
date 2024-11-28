@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-notification-policies
+  labels:
+    grafana_alert_notification: "1"
+data:
+  notification_policies.yaml: |-
+    alerting:
+      notification_policies:
+        - receiver: EmailContactPoint
+          # Optionally add matchers
