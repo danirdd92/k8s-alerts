@@ -11,4 +11,4 @@ data:
         type: email
         uid: email_contact_point
         settings:
-          addresses: 'your-email@example.com'
+          addresses: 'your-email@example.com', "other-email@example.com"
