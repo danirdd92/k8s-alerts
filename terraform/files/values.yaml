@@ -167,7 +167,7 @@ groups:
           description: 'etcd cluster "{{ $labels.job }}": insufficient members ({{ $value
             }}).'
           summary: etcd cluster has insufficient number of members.
-        expr:
+        expr: |
           sum(up{job=~".*etcd.*"} == bool 1) without (instance, pod) < ((count(up{job=~".*etcd.*"})
           without (instance, pod) + 1) / 2)
         for: 3m
@@ -189,7 +189,7 @@ groups:
             resources, high network latency, or disruptions by other components and should
             be investigated.'
           summary: etcd cluster has high number of leader changes.
-        expr:
+        expr: |
           increase((max without (instance, pod) (etcd_server_leader_changes_seen_total{job=~".*etcd.*"})
           or 0*absent(etcd_server_leader_changes_seen_total{job=~".*etcd.*"}))[15m:1m])
           >= 4
@@ -295,7 +295,8 @@ groups:
             quota on etcd instance {{ $labels.instance }}, please defrag or increase the
             quota as the writes to etcd will be disabled when it is full.'
           summary: etcd cluster database is running full.
-        expr: (last_over_time(etcd_mvcc_db_total_size_in_bytes{job=~".*etcd.*"}[5m]) /
+        expr: |
+          (last_over_time(etcd_mvcc_db_total_size_in_bytes{job=~".*etcd.*"}[5m]) /
           last_over_time(etcd_server_quota_backend_bytes{job=~".*etcd.*"}[5m]))*100 >
           95
         for: 10m
@@ -308,7 +309,7 @@ groups:
             four hours on etcd instance {{ $labels.instance }}, please check as it might
             be disruptive.'
           summary: etcd cluster database growing very fast.
-        expr:
+        expr: |
           predict_linear(etcd_mvcc_db_total_size_in_bytes{job=~".*etcd.*"}[4h], 4*60*60)
           > etcd_server_quota_backend_bytes{job=~".*etcd.*"}
         for: 10m
@@ -322,7 +323,7 @@ groups:
             retrieve the unused fragmented disk space.'
           summary: etcd database size in use is less than 50% of the actual allocated
             storage.
-        expr:
+        expr: |
           (last_over_time(etcd_mvcc_db_total_size_in_use_in_bytes{job=~".*etcd.*"}[5m])
           / last_over_time(etcd_mvcc_db_total_size_in_bytes{job=~".*etcd.*"}[5m])) < 0.5
           and etcd_mvcc_db_total_size_in_use_in_bytes{job=~".*etcd.*"} > 104857600
@@ -337,7 +338,8 @@ groups:
             '{{ printf "%.4g" $value }}% of the {{ $labels.job }}/{{ $labels.service
             }} targets in {{ $labels.namespace }} namespace are down.'
           summary: One or more targets are unreachable.
-        expr: 100 * (count(up == 0) BY (cluster, job, namespace, service) / count(up)
+        expr: |
+          100 * (count(up == 0) BY (cluster, job, namespace, service) / count(up)
           BY (cluster, job, namespace, service)) > 10
         for: 10m
         labels:
@@ -365,7 +367,8 @@ groups:
             severity of 'warning' or 'critical' starts firing on the same namespace.
             This alert should be routed to a null receiver and configured to inhibit alerts with severity="info".
           summary: Info-level alert inhibition.
-        expr: ALERTS{severity = "info"} == 1 unless on (namespace) ALERTS{alertname !=
+        expr: |
+          {severity = "info"} == 1 unless on (namespace) ALERTS{alertname !=
           "InfoInhibitor", severity =~ "warning|critical", alertstate="firing"} == 1
         labels:
           severity: none
@@ -545,13 +548,13 @@ groups:
         record: code:apiserver_request_total:increase30d
       - expr: sum by (cluster, verb, scope, le) (increase(apiserver_request_sli_duration_seconds_bucket[1h]))
         record: cluster_verb_scope_le:apiserver_request_sli_duration_seconds_bucket:increase1h
-      - expr:
+      - expr: |
           sum by (cluster, verb, scope, le) (avg_over_time(cluster_verb_scope_le:apiserver_request_sli_duration_seconds_bucket:increase1h[30d])
           * 24 * 30)
         record: cluster_verb_scope_le:apiserver_request_sli_duration_seconds_bucket:increase30d
       - expr: sum by (cluster, verb, scope) (cluster_verb_scope_le:apiserver_request_sli_duration_seconds_bucket:increase1h{le="+Inf"})
         record: cluster_verb_scope:apiserver_request_sli_duration_seconds_count:increase1h
-      - expr:
+      - expr: |
           sum by (cluster, verb, scope) (cluster_verb_scope_le:apiserver_request_sli_duration_seconds_bucket:increase30d{le="+Inf"}
           * 24 * 30)
         record: cluster_verb_scope:apiserver_request_sli_duration_seconds_count:increase30d
@@ -950,14 +953,14 @@ groups:
         record: apiserver_request:burnrate6h
   - name: kube-apiserver-histogram.rules
     rules:
-      - expr:
+      - expr: |
           histogram_quantile(0.99, sum by (cluster, le, resource) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[5m])))
           > 0
         labels:
           quantile: "0.99"
           verb: read
         record: cluster_quantile:apiserver_request_sli_duration_seconds:histogram_quantile
-      - expr:
+      - expr: |
           histogram_quantile(0.99, sum by (cluster, le, resource) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[5m])))
           > 0
         labels:
@@ -1034,38 +1037,36 @@ groups:
         record: instance:node_network_receive_bytes:rate:sum
       - expr: sum(rate(node_network_transmit_bytes_total[3m])) BY (instance)
         record: instance:node_network_transmit_bytes:rate:sum
-      - expr:
+      - expr: |
           sum(rate(node_cpu_seconds_total{mode!="idle",mode!="iowait",mode!="steal"}[5m]))
           WITHOUT (cpu, mode) / ON (instance) GROUP_LEFT() count(sum(node_cpu_seconds_total)
           BY (instance, cpu)) BY (instance)
         record: instance:node_cpu:ratio
       - expr: sum(rate(node_cpu_seconds_total{mode!="idle",mode!="iowait",mode!="steal"}[5m]))
         record: cluster:node_cpu:sum_rate5m
-      - expr:
-          cluster:node_cpu:sum_rate5m / count(sum(node_cpu_seconds_total) BY (instance,
-          cpu))
+      - expr: cluster:node_cpu:sum_rate5m / count(sum(node_cpu_seconds_total) BY (instance, cpu))
         record: cluster:node_cpu:ratio
   - name: kube-scheduler.rules
     rules:
-      - expr:
+      - expr: |
           histogram_quantile(0.99, sum(rate(scheduler_e2e_scheduling_duration_seconds_bucket{job="kube-scheduler"}[5m]))
           without(instance, pod))
         labels:
           quantile: "0.99"
         record: cluster_quantile:scheduler_e2e_scheduling_duration_seconds:histogram_quantile
-      - expr:
+      - expr: |
           histogram_quantile(0.99, sum(rate(scheduler_scheduling_algorithm_duration_seconds_bucket{job="kube-scheduler"}[5m]))
           without(instance, pod))
         labels:
           quantile: "0.99"
         record: cluster_quantile:scheduler_scheduling_algorithm_duration_seconds:histogram_quantile
-      - expr:
+      - expr: |
           histogram_quantile(0.99, sum(rate(scheduler_binding_duration_seconds_bucket{job="kube-scheduler"}[5m]))
           without(instance, pod))
         labels:
           quantile: "0.99"
         record: cluster_quantile:scheduler_binding_duration_seconds:histogram_quantile
-      - expr:
+      - expr: |
           histogram_quantile(0.9, sum(rate(scheduler_e2e_scheduling_duration_seconds_bucket{job="kube-scheduler"}[5m]))
           without(instance, pod))
         labels:
@@ -1077,25 +1078,25 @@ groups:
         labels:
           quantile: "0.9"
         record: cluster_quantile:scheduler_scheduling_algorithm_duration_seconds:histogram_quantile
-      - expr:
+      - expr: |
           histogram_quantile(0.9, sum(rate(scheduler_binding_duration_seconds_bucket{job="kube-scheduler"}[5m]))
           without(instance, pod))
         labels:
           quantile: "0.9"
         record: cluster_quantile:scheduler_binding_duration_seconds:histogram_quantile
-      - expr:
+      - expr: |
           histogram_quantile(0.5, sum(rate(scheduler_e2e_scheduling_duration_seconds_bucket{job="kube-scheduler"}[5m]))
           without(instance, pod))
         labels:
           quantile: "0.5"
         record: cluster_quantile:scheduler_e2e_scheduling_duration_seconds:histogram_quantile
-      - expr:
+      - expr: |
           histogram_quantile(0.5, sum(rate(scheduler_scheduling_algorithm_duration_seconds_bucket{job="kube-scheduler"}[5m]))
           without(instance, pod))
         labels:
           quantile: "0.5"
         record: cluster_quantile:scheduler_scheduling_algorithm_duration_seconds:histogram_quantile
-      - expr:
+      - expr: |
           histogram_quantile(0.5, sum(rate(scheduler_binding_duration_seconds_bucket{job="kube-scheduler"}[5m]))
           without(instance, pod))
         labels:
@@ -1137,7 +1138,7 @@ groups:
             configuration, some Kubernetes objects may be exposed multiple times or not
             exposed at all.
           summary: kube-state-metrics sharding is misconfigured.
-        expr:
+        expr: |
           stdvar (kube_state_metrics_total_shards{job="kube-state-metrics"}) by (cluster)
           != 0
         for: 15m
@@ -1158,21 +1159,21 @@ groups:
           severity: critical
   - name: kubelet.rules
     rules:
-      - expr:
+      - expr: |
           histogram_quantile(0.99, sum(rate(kubelet_pleg_relist_duration_seconds_bucket{job="kubelet",
           metrics_path="/metrics"}[5m])) by (cluster, instance, le) * on (cluster, instance)
           group_left(node) kubelet_node_name{job="kubelet", metrics_path="/metrics"})
         labels:
           quantile: "0.99"
         record: node_quantile:kubelet_pleg_relist_duration_seconds:histogram_quantile
-      - expr:
+      - expr: |
           histogram_quantile(0.9, sum(rate(kubelet_pleg_relist_duration_seconds_bucket{job="kubelet",
           metrics_path="/metrics"}[5m])) by (cluster, instance, le) * on (cluster, instance)
           group_left(node) kubelet_node_name{job="kubelet", metrics_path="/metrics"})
         labels:
           quantile: "0.9"
         record: node_quantile:kubelet_pleg_relist_duration_seconds:histogram_quantile
-      - expr:
+      - expr: |
           histogram_quantile(0.5, sum(rate(kubelet_pleg_relist_duration_seconds_bucket{job="kubelet",
           metrics_path="/metrics"}[5m])) by (cluster, instance, le) * on (cluster, instance)
           group_left(node) kubelet_node_name{job="kubelet", metrics_path="/metrics"})
@@ -1187,7 +1188,7 @@ groups:
             'Pod {{ $labels.namespace }}/{{ $labels.pod }} ({{ $labels.container
             }}) is in waiting state (reason: "CrashLoopBackOff").'
           summary: Pod is crash looping.
-        expr:
+        expr: |
           max_over_time(kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff",
           job="kube-state-metrics", namespace=~".*"}[5m]) >= 1
         for: 15m
@@ -1350,7 +1351,7 @@ groups:
             container {{ $labels.container}} has been in waiting state for longer than
             1 hour. (reason: "{{ $labels.reason }}").'
           summary: Pod container waiting longer than 1 hour
-        expr:
+        expr: |
           kube_pod_container_status_waiting_reason{reason!="CrashLoopBackOff", job="kube-state-metrics",
           namespace=~".*"} > 0
         for: 1h
@@ -1375,7 +1376,7 @@ groups:
             "{{ $value }} Pods of DaemonSet {{ $labels.namespace }}/{{ $labels.daemonset
             }} are running where they are not supposed to run."
           summary: DaemonSet pods are misscheduled.
-        expr:
+        expr: |
           kube_daemonset_status_number_misscheduled{job="kube-state-metrics", namespace=~".*"}
           > 0
         for: 15m
@@ -1647,7 +1648,7 @@ groups:
             The persistent volume {{ $labels.persistentvolume }} {{ with $labels.cluster
             -}} on Cluster {{ . }} {{- end }} has status {{ $labels.phase }}.
           summary: PersistentVolume is having issues with provisioning.
-        expr:
+        expr: |
           kube_persistentvolume_status_phase{phase=~"Failed|Pending",job="kube-state-metrics"}
           > 0
         for: 5m
@@ -1695,7 +1696,7 @@ groups:
           description: Kubernetes aggregated API {{ $labels.name }}/{{ $labels.namespace
             }} has been only {{ $value | humanize }}% available over the last 10m.
           summary: Kubernetes aggregated API is down.
-        expr:
+        expr: |
           (1 - max by (name, namespace, cluster)(avg_over_time(aggregator_unavailable_apiservice{job="apiserver"}[10m])))
           * 100 < 85
         for: 5m
@@ -1716,7 +1717,7 @@ groups:
             }} of its incoming requests.
           summary: The kubernetes apiserver has terminated {{ $value | humanizePercentage
             }} of its incoming requests.
-        expr:
+        expr: |
           sum by (cluster) (rate(apiserver_request_terminations_total{job="apiserver"}[10m]))
           / ( sum by (cluster) (rate(apiserver_request_total{job="apiserver"}[10m])) +
           sum by (cluster) (rate(apiserver_request_terminations_total{job="apiserver"}[10m]))
@@ -1741,7 +1742,7 @@ groups:
           description: There are {{ $value }} different semantic versions of Kubernetes
             components running.
           summary: Different semantic versions of Kubernetes components running.
-        expr:
+        expr: |
           count by (cluster) (count by (git_version, cluster) (label_replace(kubernetes_build_info{job!~"kube-dns|coredns"},"git_version","$1","git_version","(v[0-9]*.[0-9]*).*")))
           > 1
         for: 15m
@@ -1776,7 +1777,7 @@ groups:
         annotations:
           description: "{{ $labels.node }} has been unready for more than 15 minutes."
           summary: Node is not ready.
-        expr:
+        expr: |
           kube_node_status_condition{job="kube-state-metrics",condition="Ready",status="true"}
           == 0
         for: 15m
@@ -1786,7 +1787,7 @@ groups:
         annotations:
           description: "{{ $labels.node }} is unreachable and some workloads may be rescheduled."
           summary: Node is unreachable.
-        expr:
+        expr: |
           (kube_node_spec_taint{job="kube-state-metrics",key="node.kubernetes.io/unreachable",effect="NoSchedule"}
           unless ignoring(key,value) kube_node_spec_taint{job="kube-state-metrics",key=~"ToBeDeletedByClusterAutoscaler|cloud.google.com/impending-node-termination|aws-node-termination-handler/spot-itn"})
           == 1
@@ -1815,7 +1816,7 @@ groups:
           description: The readiness status of node {{ $labels.node }} has changed {{
             $value }} times in the last 15 minutes.
           summary: Node readiness status is flapping.
-        expr:
+        expr: |
           sum(changes(kube_node_status_condition{job="kube-state-metrics",status="true",condition="Ready"}[15m]))
           by (cluster, node) > 2
         for: 15m
@@ -1826,7 +1827,7 @@ groups:
           description: The Kubelet Pod Lifecycle Event Generator has a 99th percentile
             duration of {{ $value }} seconds on node {{ $labels.node }}.
           summary: Kubelet Pod Lifecycle Event Generator is taking too long to relist.
-        expr:
+        expr: |
           node_quantile:kubelet_pleg_relist_duration_seconds:histogram_quantile{quantile="0.99"}
           >= 10
         for: 5m
@@ -1837,7 +1838,7 @@ groups:
           description: Kubelet Pod startup 99th percentile latency is {{ $value }} seconds
             on node {{ $labels.node }}.
           summary: Kubelet Pod startup latency is too high.
-        expr:
+        expr: |
           histogram_quantile(0.99, sum(rate(kubelet_pod_worker_duration_seconds_bucket{job="kubelet",
           metrics_path="/metrics"}[5m])) by (cluster, instance, le)) * on (cluster, instance)
           group_left(node) kubelet_node_name{job="kubelet", metrics_path="/metrics"} >
@@ -1882,8 +1883,7 @@ groups:
           description: Kubelet on node {{ $labels.node }} has failed to renew its client
             certificate ({{ $value | humanize }} errors in the last 5 minutes).
           summary: Kubelet has failed to renew its client certificate.
-        expr: increase(kubelet_certificate_manager_client_expiration_renew_errors[5m])
-          > 0
+        expr: increase(kubelet_certificate_manager_client_expiration_renew_errors[5m]) > 0
         for: 15m
         labels:
           severity: warning
@@ -2058,7 +2058,7 @@ groups:
             '{{ $labels.instance }} interface {{ $labels.device }} has encountered
             {{ printf "%.0f" $value }} receive errors in the last two minutes.'
           summary: Network interface is reporting many receive errors.
-        expr:
+        expr: |
           rate(node_network_receive_errs_total{job="node-exporter"}[2m]) / rate(node_network_receive_packets_total{job="node-exporter"}[2m])
           > 0.01
         for: 1h
@@ -2070,7 +2070,7 @@ groups:
             '{{ $labels.instance }} interface {{ $labels.device }} has encountered
             {{ printf "%.0f" $value }} transmit errors in the last two minutes.'
           summary: Network interface is reporting many transmit errors.
-        expr:
+        expr: |
           rate(node_network_transmit_errs_total{job="node-exporter"}[2m]) / rate(node_network_transmit_packets_total{job="node-exporter"}[2m])
           > 0.01
         for: 1h
@@ -2080,7 +2080,7 @@ groups:
         annotations:
           description: "{{ $value | humanizePercentage }} of conntrack entries are used."
           summary: Number of conntrack are getting close to the limit.
-        expr:
+        expr: |
           (node_nf_conntrack_entries{job="node-exporter"} / node_nf_conntrack_entries_limit)
           > 0.75
         labels:
@@ -2131,7 +2131,7 @@ groups:
             in degraded state due to one or more disks failures. Number of spare drives
             is insufficient to fix issue automatically.
           summary: RAID Array is degraded.
-        expr:
+        expr: |
           node_md_disks_required{job="node-exporter",device=~"(/dev/)?(mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|md.+|dasd.+)"}
           - ignoring (state) (node_md_disks{state="active",job="node-exporter",device=~"(/dev/)?(mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|md.+|dasd.+)"})
           > 0
@@ -2143,7 +2143,7 @@ groups:
           description: At least one device in RAID array at {{ $labels.instance }} failed.
             Array '{{ $labels.device }}' needs attention and possibly a disk swap.
           summary: Failed device in RAID array.
-        expr:
+        expr: |
           node_md_disks{state="failed",job="node-exporter",device=~"(/dev/)?(mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|md.+|dasd.+)"}
           > 0
         labels:
@@ -2177,7 +2177,7 @@ groups:
           description: |
             CPU usage at {{ $labels.instance }} has been above 90% for the last 15 minutes, is currently at {{ printf "%.2f" $value }}%.
           summary: High CPU usage.
-        expr:
+        expr: |
           sum without(mode) (avg without (cpu) (rate(node_cpu_seconds_total{job="node-exporter",
           mode!="idle"}[2m]))) * 100 > 90
         for: 15m
@@ -2210,7 +2210,7 @@ groups:
           description: |
             Memory is filling up at {{ $labels.instance }}, has been above 90% for the last 15 minutes, is currently at {{ printf "%.2f" $value }}%.
           summary: Host is running out of memory.
-        expr:
+        expr: |
           100 - (node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"}
           * 100) > 90
         for: 15m
@@ -2222,7 +2222,7 @@ groups:
             Disk IO queue (aqu-sq) is high on {{ $labels.device }} at {{ $labels.instance }}, has been above 10 for the last 30 minutes, is currently at {{ printf "%.2f" $value }}.
             This symptom might indicate disk saturation.
           summary: Disk IO queue is high.
-        expr:
+        expr: |
           rate(node_disk_io_time_weighted_seconds_total{job="node-exporter", device=~"(/dev/)?(mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|md.+|dasd.+)"}[5m])
           > 10
         for: 30m
@@ -2378,7 +2378,7 @@ groups:
           description: Prometheus {{$labels.namespace}}/{{$labels.pod}} has failed to
             refresh SD with mechanism {{$labels.mechanism}}.
           summary: Failed Prometheus SD refresh.
-        expr:
+        expr: |
           increase(prometheus_sd_refresh_failures_total{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[10m])
           > 0
         for: 20m
@@ -2391,7 +2391,7 @@ groups:
             is experiencing {{ printf "%.0f" $value }} failures with LIST/WATCH requests
             to the Kubernetes API in the last 5 minutes.
           summary: Requests in Kubernetes SD are failing.
-        expr:
+        expr: |
           increase(prometheus_sd_kubernetes_failures_total{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m])
           > 0
         for: 15m
@@ -2451,7 +2451,7 @@ groups:
             Prometheus {{$labels.namespace}}/{{$labels.pod}} has detected {{$value
             | humanize}} reload failures over the last 3h.
           summary: Prometheus has issues reloading blocks from disk.
-        expr:
+        expr: |
           increase(prometheus_tsdb_reloads_failures_total{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[3h])
           > 0
         for: 4h
@@ -2463,7 +2463,7 @@ groups:
             Prometheus {{$labels.namespace}}/{{$labels.pod}} has detected {{$value
             | humanize}} compaction failures over the last 3h.
           summary: Prometheus has issues compacting blocks.
-        expr:
+        expr: |
           increase(prometheus_tsdb_compactions_failed_total{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[3h])
           > 0
         for: 4h
@@ -2492,7 +2492,7 @@ groups:
           description: Prometheus {{$labels.namespace}}/{{$labels.pod}} is dropping {{
             printf "%.4g" $value  }} samples/s with different values but duplicated timestamp.
           summary: Prometheus is dropping samples with duplicate timestamps.
-        expr:
+        expr: |
           rate(prometheus_target_scrapes_sample_duplicate_timestamp_total{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m])
           > 0
         for: 10m
@@ -2503,7 +2503,7 @@ groups:
           description: Prometheus {{$labels.namespace}}/{{$labels.pod}} is dropping {{
             printf "%.4g" $value  }} samples/s with timestamps arriving out of order.
           summary: Prometheus drops samples with out-of-order timestamps.
-        expr:
+        expr: |
           rate(prometheus_target_scrapes_sample_out_of_order_total{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m])
           > 0
         for: 10m
@@ -2573,7 +2573,7 @@ groups:
           description: Prometheus {{$labels.namespace}}/{{$labels.pod}} has failed to
             evaluate {{ printf "%.0f" $value }} rules in the last 5m.
           summary: Prometheus is failing rule evaluations.
-        expr:
+        expr: |
           increase(prometheus_rule_evaluation_failures_total{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m])
           > 0
         for: 15m
@@ -2584,7 +2584,7 @@ groups:
           description: Prometheus {{$labels.namespace}}/{{$labels.pod}} has missed {{
             printf "%.0f" $value }} rule group evaluations in the last 5m.
           summary: Prometheus is missing rule evaluations due to slow rule group evaluation.
-        expr:
+        expr: |
           increase(prometheus_rule_group_iterations_missed_total{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m])
           > 0
         for: 15m
@@ -2598,7 +2598,7 @@ groups:
           summary:
             Prometheus has dropped targets because some scrape configs have exceeded
             the targets limit.
-        expr:
+        expr: |
           increase(prometheus_target_scrape_pool_exceeded_target_limit_total{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m])
           > 0
         for: 15m
@@ -2612,7 +2612,7 @@ groups:
           summary:
             Prometheus has dropped targets because some scrape configs have exceeded
             the labels limit.
-        expr:
+        expr: |
           increase(prometheus_target_scrape_pool_exceeded_label_limits_total{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m])
           > 0
         for: 15m
@@ -2624,7 +2624,7 @@ groups:
             printf "%.0f" $value }} scrapes in the last 5m because some targets exceeded
             the configured body_size_limit.
           summary: Prometheus has dropped some targets that exceeded body size limit.
-        expr:
+        expr: |
           increase(prometheus_target_scrapes_exceeded_body_size_limit_total{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m])
           > 0
         for: 15m
@@ -2637,7 +2637,7 @@ groups:
             the configured sample_limit.
           summary: Prometheus has failed scrapes that have exceeded the configured sample
             limit.
-        expr:
+        expr: |
           increase(prometheus_target_scrapes_exceeded_sample_limit_total{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m])
           > 0
         for: 15m
@@ -2649,7 +2649,7 @@ groups:
             '{{ printf "%.0f" $value }} targets in Prometheus {{$labels.namespace}}/{{$labels.pod}}
             have failed to sync because invalid configuration was supplied.'
           summary: Prometheus has failed to sync targets.
-        expr:
+        expr: |
           increase(prometheus_target_sync_failed_total{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[30m])
           > 0
         for: 5m
@@ -2660,7 +2660,7 @@ groups:
           description: Prometheus {{$labels.namespace}}/{{$labels.pod}} query API has
             less than 20% available capacity in its query engine for the last 15 minutes.
           summary: Prometheus is reaching its maximum capacity serving concurrent requests.
-        expr:
+        expr: |
           avg_over_time(prometheus_engine_queries{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m])
           / max_over_time(prometheus_engine_queries_concurrent_max{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m])
           > 0.8
@@ -2691,7 +2691,7 @@ groups:
             Errors while performing List operations in controller {{$labels.controller}}
             in {{$labels.namespace}} namespace.
           summary: Errors while performing list operations in controller.
-        expr:
+        expr: |
           (sum by (cluster,controller,namespace) (rate(prometheus_operator_list_operations_failed_total{job="prometheus-kube-prometheus-operator",namespace="monitoring"}[10m]))
           / sum by (cluster,controller,namespace) (rate(prometheus_operator_list_operations_total{job="prometheus-kube-prometheus-operator",namespace="monitoring"}[10m])))
           > 0.4
@@ -2704,7 +2704,7 @@ groups:
             Errors while performing watch operations in controller {{$labels.controller}}
             in {{$labels.namespace}} namespace.
           summary: Errors while performing watch operations in controller.
-        expr:
+        expr: |
           (sum by (cluster,controller,namespace) (rate(prometheus_operator_watch_operations_failed_total{job="prometheus-kube-prometheus-operator",namespace="monitoring"}[5m]))
           / sum by (cluster,controller,namespace) (rate(prometheus_operator_watch_operations_total{job="prometheus-kube-prometheus-operator",namespace="monitoring"}[5m])))
           > 0.4
@@ -2716,7 +2716,7 @@ groups:
           description: Controller {{ $labels.controller }} in {{ $labels.namespace }}
             namespace fails to reconcile {{ $value }} objects.
           summary: Last controller reconciliation failed
-        expr:
+        expr: |
           min_over_time(prometheus_operator_syncs{status="failed",job="prometheus-kube-prometheus-operator",namespace="monitoring"}[5m])
           > 0
         for: 10m
@@ -2727,7 +2727,7 @@ groups:
           description: "{{ $value | humanizePercentage }} of reconciling operations failed
             for {{ $labels.controller }} controller in {{ $labels.namespace }} namespace."
           summary: Errors while reconciling objects.
-        expr:
+        expr: |
           (sum by (cluster,controller,namespace) (rate(prometheus_operator_reconcile_errors_total{job="prometheus-kube-prometheus-operator",namespace="monitoring"}[5m])))
           / (sum by (cluster,controller,namespace) (rate(prometheus_operator_reconcile_operations_total{job="prometheus-kube-prometheus-operator",namespace="monitoring"}[5m])))
           > 0.1
@@ -2740,7 +2740,7 @@ groups:
             failed for {{ $labels.controller }} controller in {{ $labels.namespace }}
             namespace."
           summary: Errors while updating objects status.
-        expr:
+        expr: |
           (sum by (cluster,controller,namespace) (rate(prometheus_operator_status_update_errors_total{job="prometheus-kube-prometheus-operator",namespace="monitoring"}[5m])))
           / (sum by (cluster,controller,namespace) (rate(prometheus_operator_status_update_operations_total{job="prometheus-kube-prometheus-operator",namespace="monitoring"}[5m])))
           > 0.1
@@ -2752,7 +2752,7 @@ groups:
           description: Errors while reconciling Prometheus in {{ $labels.namespace }}
             Namespace.
           summary: Errors while reconciling Prometheus.
-        expr:
+        expr: |
           rate(prometheus_operator_node_address_lookup_errors_total{job="prometheus-kube-prometheus-operator",namespace="monitoring"}[5m])
           > 0.1
         for: 10m
@@ -2763,7 +2763,7 @@ groups:
           description: Prometheus operator in {{ $labels.namespace }} namespace isn't
             ready to reconcile {{ $labels.controller }} resources.
           summary: Prometheus operator not ready
-        expr:
+        expr: |
           min by (cluster,controller,namespace) (max_over_time(prometheus_operator_ready{job="prometheus-kube-prometheus-operator",namespace="monitoring"}[5m])
           == 0)
         for: 5m
@@ -2775,7 +2775,7 @@ groups:
             {{ printf "%0.0f" $value }} {{ $labels.controller }}/{{ $labels.resource }}
             resources.
           summary: Resources rejected by Prometheus operator
-        expr:
+        expr: |
           min_over_time(prometheus_operator_managed_resources{state="rejected",job="prometheus-kube-prometheus-operator",namespace="monitoring"}[5m])
           > 0
         for: 5m
