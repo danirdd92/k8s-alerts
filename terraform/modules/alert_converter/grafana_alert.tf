@@ -1,4 +1,10 @@
+resource "grafana_folder" "this" {
+  title = "Grafana-Alerts"
+  uid   = "gral"
+}
+
 resource "grafana_rule_group" "this" {
+
   for_each = local.alertsfile_map
 
   name       = each.value.name
@@ -133,4 +139,5 @@ resource "grafana_rule_group" "this" {
       }
     }
   }
+  depends_on = [grafana_folder.this]
 }

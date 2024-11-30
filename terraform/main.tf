@@ -10,13 +10,13 @@ terraform {
 
 provider "grafana" {
   url  = "http://localhost:3000"
-  auth = "admin:prom-operator"
+  auth = "user:password"
 }
 
 module "alert_converter" {
   source = "./modules/alert_converter"
 
-  prometheus_alerts_file_path = file("/home/dani/cw/k8s-alerts/terraform/files/*.yaml")
-  folder_uid                  = 1
-  datasource_uid              = 1
+  prometheus_alerts_file_path = file("${path.module}/files/values.yaml")
+  folder_uid                  = "need to create a folder and check the uid via the api before running this!"
+  datasource_uid              = "need to check via api before running this!"
 }
