@@ -425,7 +425,7 @@ data:
           * on (cluster, namespace, pod) group_left(node) topk by (cluster, namespace, pod) (1,
             max by (cluster, namespace, pod, node) (kube_pod_info{node!=""})
           )
-        record: node_n amespace_pod_container:container_memory_working_set_bytes
+        record: node_namespace_pod_container:container_memory_working_set_bytes
   k8s-rules-container-resource.yaml: |
     groups:
     - name: k8s.rules.container_resource
