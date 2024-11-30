@@ -6,10 +6,7 @@ groups:
           description: Configuration has failed to load for {{ $labels.namespace }}/{{
             $labels.pod}}.
           summary: Reloading an Alertmanager configuration has failed.
-        expr: |
-          # Without max_over_time, failed scrapes could create false negatives, see
-          # https://www.robustperception.io/alerting-on-gauges-in-prometheus-2-0 for details.
-          max_over_time(alertmanager_config_last_reload_successful{job="prometheus-kube-prometheus-alertmanager",namespace="monitoring"}[5m]) == 0
+        expr: max_over_time(alertmanager_config_last_reload_successful{job="prometheus-kube-prometheus-alertmanager",namespace="monitoring"}[5m]) == 0
         for: 10m
         labels:
           severity: critical
@@ -20,11 +17,9 @@ groups:
           summary: A member of an Alertmanager cluster has not found all other cluster
             members.
         expr: |
-          # Without max_over_time, failed scrapes could create false negatives, see
-          # https://www.robustperception.io/alerting-on-gauges-in-prometheus-2-0 for details.
-            max_over_time(alertmanager_cluster_members{job="prometheus-kube-prometheus-alertmanager",namespace="monitoring"}[5m])
+          max_over_time(alertmanager_cluster_members{job="prometheus-kube-prometheus-alertmanager",namespace="monitoring"}[5m])
           < on (namespace,service,cluster) group_left
-            count by (namespace,service,cluster) (max_over_time(alertmanager_cluster_members{job="prometheus-kube-prometheus-alertmanager",namespace="monitoring"}[5m]))
+          count by (namespace,service,cluster) (max_over_time(alertmanager_cluster_members{job="prometheus-kube-prometheus-alertmanager",namespace="monitoring"}[5m]))
         for: 15m
         labels:
           severity: critical
@@ -535,8 +530,7 @@ groups:
   - name: kube-apiserver-availability.rules
     interval: 3m
     rules:
-      - expr: avg_over_time(code_verb:apiserver_request_total:increase1h[30d]) * 24 *
-          30
+      - expr: avg_over_time(code_verb:apiserver_request_total:increase1h[30d]) * 24 * 30
         record: code_verb:apiserver_request_total:increase30d
       - expr: sum by (cluster, code) (code_verb:apiserver_request_total:increase30d{verb=~"LIST|GET"})
         labels:
@@ -561,13 +555,11 @@ groups:
       - expr: |
           1 - (
             (
-              # write too slow
               sum by (cluster) (cluster_verb_scope:apiserver_request_sli_duration_seconds_count:increase30d{verb=~"POST|PUT|PATCH|DELETE"})
               -
               sum by (cluster) (cluster_verb_scope_le:apiserver_request_sli_duration_seconds_bucket:increase30d{verb=~"POST|PUT|PATCH|DELETE",le="1"})
             ) +
             (
-              # read too slow
               sum by (cluster) (cluster_verb_scope:apiserver_request_sli_duration_seconds_count:increase30d{verb=~"LIST|GET"})
               -
               (
@@ -582,7 +574,6 @@ groups:
                 sum by (cluster) (cluster_verb_scope_le:apiserver_request_sli_duration_seconds_bucket:increase30d{verb=~"LIST|GET",scope="cluster",le="30"})
               )
             ) +
-            # errors
             sum by (cluster) (code:apiserver_request_total:increase30d{code=~"5.."} or vector(0))
           )
           /
@@ -595,7 +586,6 @@ groups:
             sum by (cluster) (cluster_verb_scope:apiserver_request_sli_duration_seconds_count:increase30d{verb=~"LIST|GET"})
             -
             (
-              # too slow
               (
                 sum by (cluster) (cluster_verb_scope_le:apiserver_request_sli_duration_seconds_bucket:increase30d{verb=~"LIST|GET",scope=~"resource|",le="1"})
                 or
@@ -607,7 +597,6 @@ groups:
               sum by (cluster) (cluster_verb_scope_le:apiserver_request_sli_duration_seconds_bucket:increase30d{verb=~"LIST|GET",scope="cluster",le="30"})
             )
             +
-            # errors
             sum by (cluster) (code:apiserver_request_total:increase30d{verb="read",code=~"5.."} or vector(0))
           )
           /
@@ -618,13 +607,11 @@ groups:
       - expr: |
           1 - (
             (
-              # too slow
               sum by (cluster) (cluster_verb_scope:apiserver_request_sli_duration_seconds_count:increase30d{verb=~"POST|PUT|PATCH|DELETE"})
               -
               sum by (cluster) (cluster_verb_scope_le:apiserver_request_sli_duration_seconds_bucket:increase30d{verb=~"POST|PUT|PATCH|DELETE",le="1"})
             )
             +
-            # errors
             sum by (cluster) (code:apiserver_request_total:increase30d{verb="write",code=~"5.."} or vector(0))
           )
           /
@@ -653,7 +640,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[1d]))
               -
               (
@@ -669,7 +655,6 @@ groups:
               )
             )
             +
-            # errors
             sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[1d]))
           )
           /
@@ -680,7 +665,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[1h]))
               -
               (
@@ -696,7 +680,6 @@ groups:
               )
             )
             +
-            # errors
             sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[1h]))
           )
           /
@@ -707,7 +690,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[2h]))
               -
               (
@@ -723,7 +705,6 @@ groups:
               )
             )
             +
-            # errors
             sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[2h]))
           )
           /
@@ -734,7 +715,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[30m]))
               -
               (
@@ -750,7 +730,6 @@ groups:
               )
             )
             +
-            # errors
             sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[30m]))
           )
           /
@@ -761,7 +740,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[3d]))
               -
               (
@@ -777,7 +755,6 @@ groups:
               )
             )
             +
-            # errors
             sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[3d]))
           )
           /
@@ -788,7 +765,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[5m]))
               -
               (
@@ -804,7 +780,6 @@ groups:
               )
             )
             +
-            # errors
             sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[5m]))
           )
           /
@@ -815,7 +790,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[6h]))
               -
               (
@@ -831,7 +805,6 @@ groups:
               )
             )
             +
-            # errors
             sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[6h]))
           )
           /
@@ -842,7 +815,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[1d]))
               -
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[1d]))
@@ -858,7 +830,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[1h]))
               -
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[1h]))
@@ -874,7 +845,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[2h]))
               -
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[2h]))
@@ -890,7 +860,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[30m]))
               -
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[30m]))
@@ -906,7 +875,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[3d]))
               -
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[3d]))
@@ -922,7 +890,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[5m]))
               -
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[5m]))
@@ -938,7 +905,6 @@ groups:
       - expr: |
           (
             (
-              # too slow
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[6h]))
               -
               sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[6h]))
@@ -1029,9 +995,7 @@ groups:
         record: count:up0
   - name: kube-prometheus-node-recording.rules
     rules:
-      - expr:
-          sum(rate(node_cpu_seconds_total{mode!="idle",mode!="iowait",mode!="steal"}[3m]))
-          BY (instance)
+      - expr: sum(rate(node_cpu_seconds_total{mode!="idle",mode!="iowait",mode!="steal"}[3m])) BY (instance)
         record: instance:node_cpu:rate:sum
       - expr: sum(rate(node_network_receive_bytes_total[3m])) BY (instance)
         record: instance:node_network_receive_bytes:rate:sum
@@ -1072,7 +1036,7 @@ groups:
         labels:
           quantile: "0.9"
         record: cluster_quantile:scheduler_e2e_scheduling_duration_seconds:histogram_quantile
-      - expr:
+      - expr: |
           histogram_quantile(0.9, sum(rate(scheduler_scheduling_algorithm_duration_seconds_bucket{job="kube-scheduler"}[5m]))
           without(instance, pod))
         labels:
@@ -1686,7 +1650,7 @@ groups:
             }} has reported errors. It has appeared unavailable {{ $value | humanize }}
             times averaged over the past 10m.
           summary: Kubernetes aggregated API has reported errors.
-        expr:
+        expr: |
           sum by (name, namespace, cluster)(increase(aggregator_unavailable_apiservice_total{job="apiserver"}[10m]))
           > 4
         labels:
@@ -2367,8 +2331,6 @@ groups:
             reload its configuration.
           summary: Failed Prometheus configuration reload.
         expr: |
-          # Without max_over_time, failed scrapes could create false negatives, see
-          # https://www.robustperception.io/alerting-on-gauges-in-prometheus-2-0 for details.
           max_over_time(prometheus_config_last_reload_successful{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m]) == 0
         for: 10m
         labels:
@@ -2405,8 +2367,6 @@ groups:
           summary: Prometheus alert notification queue predicted to run full in less than
             30m.
         expr: |
-          # Without min_over_time, failed scrapes could create false negatives, see
-          # https://www.robustperception.io/alerting-on-gauges-in-prometheus-2-0 for details.
           (
             predict_linear(prometheus_notifications_queue_length{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m], 60 * 30)
           >
@@ -2439,8 +2399,6 @@ groups:
             to any Alertmanagers.
           summary: Prometheus is not connected to any Alertmanagers.
         expr: |
-          # Without max_over_time, failed scrapes could create false negatives, see
-          # https://www.robustperception.io/alerting-on-gauges-in-prometheus-2-0 for details.
           max_over_time(prometheus_notifications_alertmanagers_discovered{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m]) < 1
         for: 10m
         labels:
@@ -2537,8 +2495,6 @@ groups:
             }}.
           summary: Prometheus remote write is behind.
         expr: |
-          # Without max_over_time, failed scrapes could create false negatives, see
-          # https://www.robustperception.io/alerting-on-gauges-in-prometheus-2-0 for details.
           (
             max_over_time(prometheus_remote_storage_highest_timestamp_in_seconds{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m])
           - ignoring(remote_name, url) group_right
@@ -2558,8 +2514,6 @@ groups:
           summary: Prometheus remote write desired shards calculation wants to run more
             than configured max shards.
         expr: |
-          # Without max_over_time, failed scrapes could create false negatives, see
-          # https://www.robustperception.io/alerting-on-gauges-in-prometheus-2-0 for details.
           (
             max_over_time(prometheus_remote_storage_shards_desired{job="prometheus-kube-prometheus-prometheus",namespace="monitoring"}[5m])
           >
