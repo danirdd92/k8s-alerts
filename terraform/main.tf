@@ -2,7 +2,6 @@ provider "grafana" {
   url = "http://localhost:3000/"
   # auth = "user:password"
   # or service account
-  auth = "glsa_LjrUzzXgsfV8gw0PhulPdXuZUMGsG9k3_bd5cc26e"
 }
 
 module "cert_manager_rules" {
