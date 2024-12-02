@@ -1,5 +1,5 @@
 groups:
-- name: alertmanager.rules
+- name: alertmanager-rules
   rules:
   - alert: AlertmanagerFailedReload
     annotations:
@@ -335,7 +335,7 @@ groups:
     for: 10m
     labels:
       severity: warning
-- name: general.rules
+- name: general-rules
   rules:
   - alert: TargetDown
     annotations:
@@ -377,7 +377,7 @@ groups:
       severity: none
 - name: kube-apiserver-slos
   rules:
-  - alert: KubeAPIErrorBudgetBurn
+  - alert: KubeAPIErrorBudgetBurn2Min
     annotations:
       description: The API server is burning too much error budget.
       runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeapierrorbudgetburn
@@ -391,7 +391,7 @@ groups:
       long: 1h
       severity: critical
       short: 5m
-  - alert: KubeAPIErrorBudgetBurn
+  - alert: KubeAPIErrorBudgetBurn15Min
     annotations:
       description: The API server is burning too much error budget.
       runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeapierrorbudgetburn
@@ -405,7 +405,7 @@ groups:
       long: 6h
       severity: critical
       short: 30m
-  - alert: KubeAPIErrorBudgetBurn
+  - alert: KubeAPIErrorBudgetBurn1Hour
     annotations:
       description: The API server is burning too much error budget.
       runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeapierrorbudgetburn
@@ -419,7 +419,7 @@ groups:
       long: 1d
       severity: warning
       short: 2h
-  - alert: KubeAPIErrorBudgetBurn
+  - alert: KubeAPIErrorBudgetBurn3Hour
     annotations:
       description: The API server is burning too much error budget.
       runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeapierrorbudgetburn
@@ -889,7 +889,7 @@ groups:
     for: 1m
     labels:
       severity: critical
-  - alert: KubePersistentVolumeFillingUp
+  - alert: KubePersistentVolumeFillingUpWithinDays
     annotations:
       description: Based on recent sampling, the PersistentVolume claimed by {{ $labels.persistentvolumeclaim
         }} in Namespace {{ $labels.namespace }} {{ with $labels.cluster -}} on Cluster
@@ -936,7 +936,7 @@ groups:
     for: 1m
     labels:
       severity: critical
-  - alert: KubePersistentVolumeInodesFillingUp
+  - alert: KubePersistentVolumeInodesFillingUpWithinDays
     annotations:
       description: Based on recent sampling, the PersistentVolume claimed by {{ $labels.persistentvolumeclaim
         }} in Namespace {{ $labels.namespace }} {{ with $labels.cluster -}} on Cluster
@@ -973,7 +973,7 @@ groups:
       severity: critical
 - name: kubernetes-system-apiserver
   rules:
-  - alert: KubeClientCertificateExpiration
+  - alert: KubeClientCertificateExpirationInWeek
     annotations:
       description: A client certificate used to authenticate to kubernetes apiserver
         is expiring in less than 7.0 days.
@@ -986,7 +986,7 @@ groups:
     for: 5m
     labels:
       severity: warning
-  - alert: KubeClientCertificateExpiration
+  - alert: KubeClientCertificateExpirationIn24Hours
     annotations:
       description: A client certificate used to authenticate to kubernetes apiserver
         is expiring in less than 24.0 hours.
@@ -1167,7 +1167,7 @@ groups:
     for: 15m
     labels:
       severity: warning
-  - alert: KubeletClientCertificateExpiration
+  - alert: KubeletClientCertificateExpirationWithinWeek
     annotations:
       description: Client certificate for Kubelet on node {{ $labels.node }} expires
         in {{ $value | humanizeDuration }}.
@@ -1176,7 +1176,7 @@ groups:
     expr: kubelet_certificate_manager_client_ttl_seconds < 604800
     labels:
       severity: warning
-  - alert: KubeletClientCertificateExpiration
+  - alert: KubeletClientCertificateExpirationTommorow
     annotations:
       description: Client certificate for Kubelet on node {{ $labels.node }} expires
         in {{ $value | humanizeDuration }}.
@@ -1185,7 +1185,7 @@ groups:
     expr: kubelet_certificate_manager_client_ttl_seconds < 86400
     labels:
       severity: critical
-  - alert: KubeletServerCertificateExpiration
+  - alert: KubeletServerCertificateExpirationWithinWeek
     annotations:
       description: Server certificate for Kubelet on node {{ $labels.node }} expires
         in {{ $value | humanizeDuration }}.
@@ -1194,7 +1194,7 @@ groups:
     expr: kubelet_certificate_manager_server_ttl_seconds < 604800
     labels:
       severity: warning
-  - alert: KubeletServerCertificateExpiration
+  - alert: KubeletServerCertificateExpirationTommorow
     annotations:
       description: Server certificate for Kubelet on node {{ $labels.node }} expires
         in {{ $value | humanizeDuration }}.
@@ -1263,7 +1263,7 @@ groups:
     for: 1h
     labels:
       severity: warning
-  - alert: NodeFilesystemSpaceFillingUp
+  - alert: NodeFilesystemSpaceFillingUpFast
     annotations:
       description: Filesystem on {{ $labels.device }}, mounted on {{ $labels.mountpoint
         }}, at {{ $labels.instance }} has only {{ printf "%.2f" $value }}% available
@@ -1281,7 +1281,7 @@ groups:
     for: 1h
     labels:
       severity: critical
-  - alert: NodeFilesystemAlmostOutOfSpace
+  - alert: NodeFilesystemAlmostOutOfSpaceFivePercent
     annotations:
       description: Filesystem on {{ $labels.device }}, mounted on {{ $labels.mountpoint
         }}, at {{ $labels.instance }} has only {{ printf "%.2f" $value }}% available
@@ -1297,7 +1297,7 @@ groups:
     for: 30m
     labels:
       severity: warning
-  - alert: NodeFilesystemAlmostOutOfSpace
+  - alert: NodeFilesystemAlmostOutOfSpaceThreePercent
     annotations:
       description: Filesystem on {{ $labels.device }}, mounted on {{ $labels.mountpoint
         }}, at {{ $labels.instance }} has only {{ printf "%.2f" $value }}% available
@@ -1331,7 +1331,7 @@ groups:
     for: 1h
     labels:
       severity: warning
-  - alert: NodeFilesystemFilesFillingUp
+  - alert: NodeFilesystemFilesFillingUpFast
     annotations:
       description: Filesystem on {{ $labels.device }}, mounted on {{ $labels.mountpoint
         }}, at {{ $labels.instance }} has only {{ printf "%.2f" $value }}% available
@@ -1349,7 +1349,7 @@ groups:
     for: 1h
     labels:
       severity: critical
-  - alert: NodeFilesystemAlmostOutOfFiles
+  - alert: NodeFilesystemAlmostOutOfFilesFivePercent
     annotations:
       description: Filesystem on {{ $labels.device }}, mounted on {{ $labels.mountpoint
         }}, at {{ $labels.instance }} has only {{ printf "%.2f" $value }}% available
@@ -1365,7 +1365,7 @@ groups:
     for: 1h
     labels:
       severity: warning
-  - alert: NodeFilesystemAlmostOutOfFiles
+  - alert: NodeFilesystemAlmostOutOfFilesThreePercent
     annotations:
       description: Filesystem on {{ $labels.device }}, mounted on {{ $labels.mountpoint
         }}, at {{ $labels.instance }} has only {{ printf "%.2f" $value }}% available
@@ -1475,7 +1475,7 @@ groups:
     expr: node_md_disks{state="failed",job="node-exporter",device=~"(/dev/)?(mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|md.+|dasd.+)"} > 0
     labels:
       severity: warning
-  - alert: NodeFileDescriptorLimit
+  - alert: NodeFileDescriptorLimitWarn
     annotations:
       description: File descriptors limit at {{ $labels.instance }} is currently at
         {{ printf "%.2f" $value }}%.
@@ -1588,7 +1588,6 @@ groups:
     for: 2m
     labels:
       severity: warning
-
 - name: prometheus
   rules:
   - alert: PrometheusBadConfig
