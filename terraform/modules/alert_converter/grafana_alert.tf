@@ -22,7 +22,7 @@ resource "grafana_rule_group" "this" {
   disable_provenance = var.disable_provenance
 
   dynamic "rule" {
-    for_each = { for rule in each.value.rules : rule.alert => rule }
+    for_each = try({ for rule in each.value.rules : rule.alert => rule }, {})
 
     content {
       name      = rule.value.alert
